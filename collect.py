@@ -3,6 +3,12 @@ import glob
 import re
 import csv
 import numpy as np
+import os
+
+# ----
+# Based on script form Gary Strangman:
+# https://groups.google.com/forum/?fromgroups=#!searchin/psychopy-users/tablet/psychopy-users/Bt1jh45SrQM/BoCLUo3dafIJ
+# ----
 
 # Parameters
 imgs_in = 'imgs_printed' # images we want participant to copy
@@ -18,6 +24,9 @@ lw = 4.0 # line width
 xborder = width/4
 yborder = (height/2)/4
 window_grab = (xborder, (height/2)+yborder, width-xborder, height-yborder)
+
+if not os.path.exists(imgs_out): os.makedirs(imgs_out)
+if not os.path.exists(stks_out): os.makedirs(stks_out)
 
 def run():
     # collect drawing of each image in directory
