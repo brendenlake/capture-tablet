@@ -14,7 +14,7 @@ import os
 imgs_in = 'imgs_printed' # images we want participant to copy
 imgs_out = 'imgs_handwritten' # folder to store drawn images
 stks_out = 'strokes_handwritten' # folder to store trajectory data
-width = 500 # width of window
+width = 400 # width of window
 height = width*2
 key_continue = 'space' # key to press to continue
 key_undo = 'backspace' # key to press to undo last stroke
