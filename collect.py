@@ -5,11 +5,15 @@ import csv
 import numpy as np
 import os
 import copy
+import random
 from PIL import Image
 
 # ----
 #
 # Simple drawing app that asks participants to draw a series of images. 
+#
+# Images for practice trials (stored in "imgs_in") should have 
+# 'practice' in the file name.
 #
 # Acknowledgments:
 #   Some aspects based on Gary Strangman's example:
@@ -42,6 +46,10 @@ def run():
     # collect drawing for each image in the selected directory
     username = get_username()
     fns = glob.glob(imgs_in+'/*.png')
+    fns_practice = [f for f in fns if 'practice' in f]
+    fns_other = [f for f in fns if 'practice' not in f]
+    random.shuffle(fns_other)
+    fns = fns_practice + fns_other
     trial_total = len(fns)
     for trial_num,fn in enumerate(fns):
         do_trial(fn,username,trial_num+1,trial_total)
