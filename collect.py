@@ -1,35 +1,44 @@
-from psychopy import visual,event,core,colors
+from psychopy import visual,event,core,colors,tools,monitors
 import glob
 import re
 import csv
 import numpy as np
 import os
+import copy
+from PIL import Image
 
 # ----
-# Based on script form Gary Strangman:
-# https://groups.google.com/forum/?fromgroups=#!searchin/psychopy-users/tablet/psychopy-users/Bt1jh45SrQM/BoCLUo3dafIJ
+#
+# Simple drawing app that asks participants to draw a series of images. 
+#
+# Acknowledgments:
+#   Some aspects based on Gary Strangman's example:
+#     https://groups.google.com/forum/?fromgroups=#!searchin/psychopy-users/tablet/psychopy-users/Bt1jh45SrQM/BoCLUo3dafIJ
+#
 # ----
 
 # Parameters
+lw = 8.0 # line width of the pen
 imgs_in = 'imgs_printed' # images we want participant to copy
 imgs_out = 'imgs_handwritten' # folder to store drawn images
 stks_out = 'strokes_handwritten' # folder to store trajectory data
-width = 400 # width of window
-height = width*2
+width = 500 # width of window in pixels
+window_offset = 1050 # how many pixels to offset window from left of screen
 key_continue = 'space' # key to press to continue
 key_undo = 'backspace' # key to press to undo last stroke
-lw = 4.0 # line width
+
+# Create folders if needed
+if not os.path.exists(imgs_out): os.makedirs(imgs_out)
+if not os.path.exists(stks_out): os.makedirs(stks_out)
 
 # Geometry to grab canvas frame from screen shot
+height = width*2 # height of window
 xborder = width/4
 yborder = (height/2)/4
 window_grab = (xborder, (height/2)+yborder, width-xborder, height-yborder)
 
-if not os.path.exists(imgs_out): os.makedirs(imgs_out)
-if not os.path.exists(stks_out): os.makedirs(stks_out)
-
 def run():
-    # collect drawing of each image in directory
+    # collect drawing for each image in the selected directory
     username = get_username()
     fns = glob.glob(imgs_in+'/*.png')
     trial_total = len(fns)
@@ -50,35 +59,127 @@ def get_username():
     myid = list(set(myid))
     max_id = max(myid)
     return 's' + str(max_id+1)
-
-def draw_strokes(drawlist):
-    # render strokes to screen
-    for stroke in drawlist:
-        if len(stroke.vertices.shape)>1: # if we have more than one vertex
-            stroke.draw()
-
-def get_strokes(drawlist,center,xscale,yscale):
-    # return stroke as list of trajectories
+            
+def get_strokes(D,center,xscale,yscale):
+    # return drawing as a list of normalized trajectories
     #   center: center of current bounding box
-    #   xscale: multiply by this to have range of bounding box be 1
-    #   yscale: multiply by this to have range of bounding box be 1
-    # 
-    #   Normalizes such that canvas coordinates are [-0.5,0.5] in both dimensions
+    #   xscale: multiply by this to have range of bounding box be [-0.5,0.5]
+    #   yscale: multiply by this to have range of bounding box be [-0.5,0.5] 
     strokes = []
-    for item in drawlist:
-        if len(item.vertices.shape)==1:
-            stk = [item.vertices.tolist()]
-        else:
-            stk = item.vertices.tolist()
-
+    for s in D.strokes:
+        stk = s.get_traj()
         for idx,_ in enumerate(stk):
             stk[idx][0] -= center[0]
             stk[idx][1] -= center[1]
             stk[idx][0] /= xscale
             stk[idx][1] /= yscale
-
         strokes.append(stk)
     return strokes
+
+class Drawing:
+
+    def __init__(self,w,canvas):
+        self.w = w # window
+        self.canvas = canvas # white drawing box element
+        self.strokes = [] # set of strokes that make a drawing
+        self.cache_image = [] # cache drawn canvas for quick rendering
+        self.nrerender = 80 # only render this many time points on canvas from scratch before caching
+        self.ncount = 0 # number of time points since we cached the canvas
+        self.cache()
+
+    def draw(self,from_scratch=False):
+        # render drawing on canvas
+        if from_scratch:
+            self.canvas.draw() # essentially clears back buffer
+            for stk in self.strokes:
+                stk.draw()
+        else:
+            if self.cache_image:
+                self.cache_image.draw()
+            if self.strokes:
+                self.strokes[-1].draw(self.nrerender)
+
+    def cache(self):
+        # render and store to cache for fast rendering later
+        self.draw(from_scratch=True)
+        self.cache_image = visual.BufferImageStim(self.w,buffer='back')
+        self.ncount = 0        
+
+    def new_stroke(self,pos,timestamp):
+        # create a new stroke
+        if self.strokes:
+            self.cache()
+        self.strokes.append(Stroke(self.w))
+        self.append(pos,timestamp)
+        self.ncount += 1
+
+    def append(self,pos,timestamp):
+        # add the next mouse step
+        self.strokes[-1].append(pos,timestamp)
+        self.ncount += 1
+        if self.ncount > self.nrerender:
+            self.cache()
+
+    def undo(self):
+        # remove last stroke
+        if self.strokes:
+            del self.strokes[-1]
+        self.cache()
+
+class Stroke:
+
+    def __init__(self,w):
+        self.w = w # window
+        self.T = visual.ShapeStim(self.w,lineWidth=lw,lineColor='black',fillColor=None,closeShape=False) # trajectory
+        self.isempty = True # if we have no strokes yet
+        self.T.autoLog = False # 
+        self.rounded_corners = [] # rounded corners for trajectory stored as sequence of circles
+        self.time = [] # series of time stamps for each mouse capture
+        
+        # compute radius of rounded corner circles
+        pixOverNorm = tools.monitorunittools.convertToPix(np.array([1,1]), pos = (0,0), units='norm', win=self.w)
+        normOverPix = (1 / float(pixOverNorm[0]), 1 / float(pixOverNorm[1]))
+        self.radius = ((lw/2.0)*normOverPix[0],(lw/2.0)*normOverPix[1]) # radius of pen dots
+
+    def singleton(self):
+        # return 'True' if we have just one mouse capture
+        return len(self.T.vertices.shape) <= 1
+
+    def get_traj(self):
+        # get trajectory as a list of [x,y,t] points
+        if self.singleton():
+            vlist = [self.T.vertices.tolist()]
+        else:
+            vlist = self.T.vertices.tolist()
+        for i in range(len(vlist)): # add time data
+            vlist[i] = vlist[i] + [self.time[i]]
+        return vlist
+        
+    def append(self,pos,timestamp):
+        # add a new mouse capture
+        if self.isempty:
+            self.T.setVertices(pos)
+            self.isempty = False
+        elif self.singleton():
+            self.T.setVertices([self.T.vertices.tolist()]+[pos])
+        else:
+            self.T.setVertices(self.T.vertices.tolist()+[pos])
+        C = visual.Circle(self.w,radius=self.radius, pos=pos, fillColor='black',lineColor='black',lineWidth=0)
+        C.autoLog = False
+        self.rounded_corners.append(C)
+        self.time.append(timestamp)
+
+    def draw(self,only_recent=[]):
+        # first draw rounded edges then draw straight line skeleton
+        #   only_recent: render only the m most recent time points
+        if only_recent:
+            for C in self.rounded_corners[-only_recent:]:
+                C.draw()
+        else:
+            for C in self.rounded_corners:
+                C.draw()
+        if not self.singleton():
+            self.T.draw()
 
 def do_trial(filename,username,trial_num,trial_total):
     # file to load
@@ -93,8 +194,8 @@ def do_trial(filename,username,trial_num,trial_total):
     fout_img = imgs_out+'/'+username+'_'+base+'.png'
     fout_stk = stks_out+'/'+username+'_'+base+'.csv'
 
-    # create a window, a mouse monitor and a clock
-    w = visual.Window([width,height],winType='pyglet')
+    # create a window, a mouse monitor and a clock    
+    w = visual.Window([width,height],pos=[window_offset,0],winType='pyglet')
     m = event.Mouse(win=w)    
     tick = core.Clock()
 
@@ -104,16 +205,26 @@ def do_trial(filename,username,trial_num,trial_total):
     mousedown = False
     tick.reset()
 
-    # Load display image
-    im = visual.SimpleImageStim(w,filename,pos=(0,0.5))
-    im.setAutoDraw(True)
-    im.autoLog=False
-
     # Load canvas
     cwidth = 1
     cheight = 0.5
     cpos = (0,-0.5)
     canvas = visual.Rect(w,pos=cpos,width=cwidth,height=cheight,fillColor='white')
+
+    # Load display image
+    IMG = Image.open(filename)
+    currwidth = float(max(IMG.size[0],IMG.size[1]))
+    basewidth = width / 2.0
+    wpercent = (basewidth/currwidth)
+    wsize = int((float(IMG.size[0])*float(wpercent)))
+    hsize = int((float(IMG.size[1])*float(wpercent)))
+    IMG = IMG.resize((wsize,hsize), Image.ANTIALIAS)
+    sz = (int(basewidth),int(basewidth))
+    PADDING = Image.new('RGB', sz, 'white')
+    PADDING.paste(IMG,((sz[0] - IMG.size[0]) / 2, (sz[1] - IMG.size[1]) / 2))
+    im = visual.SimpleImageStim(w,PADDING,pos=(0,0.5))
+    im.setAutoDraw(True)
+    im.autoLog=False
     
     # For rescaling time series
     cverts = canvas.vertices # [top left, top right, bottom right, bottom left]
@@ -126,64 +237,52 @@ def do_trial(filename,username,trial_num,trial_total):
     t1.setAutoDraw(True)
     t1.autoLog=False
     
-    while tick.getTime() < float('Inf'):
-        
-         canvas.draw()
-         draw_strokes(drawlist)
-         w.flip()
+    D = Drawing(w,canvas)
 
-         pos = m.getPos().tolist()
-         tt = int(tick.getTime()*1000) # time in milliseconds
-         if not canvas.contains(pos):
+    while tick.getTime() < float('Inf'):
+
+        D.draw()
+        w.flip()
+
+        # get mouse information
+        pos = m.getPos().tolist()
+        tt = int(tick.getTime()*1000) # time in milliseconds
+
+        # record
+        if not canvas.contains(pos):
             # if we move off the canvas
-             mousedown = False
-         elif m.getPressed()[0]==1:
-             # if the mouse is down, determine if JUST pressed, or still pressed
-             if mousedown == False:
-                 # start a new drawing phase (and change colors)
-                 mousedown = True
-                 drawlist.append(visual.ShapeStim(w,lineWidth=lw,lineColor='black',fillColor=None,closeShape=False))
-                 drawlist[-1].setVertices(pos)
-                 timelist.append([tt])
-             else:
-                 # continue last drawing phase
-                 if len(drawlist[-1].vertices.shape)==1:
-                     # only one vertex thus far (vertices is 1D)
-                     drawlist[-1].setVertices([drawlist[-1].vertices.tolist()]+[pos])
-                 else:
-                     # more than one vertex (vertices is 2D)
-                     drawlist[-1].setVertices(drawlist[-1].vertices.tolist()+[pos])
-                 timelist[-1].append(tt)
-         elif m.getPressed()[0]==0:
-             # if the mouse is up, reset and wait for new drawing phase
-             mousedown = False
-         if event.getKeys(keyList=key_continue):
-             # if space is pressed, the object is done
-             break
-         if event.getKeys(keyList=key_undo):
-             # if undo key is pressed, delete the last stroke
-             mousedown = False
-             del drawlist[-1]
-             del timelist[-1]
+            mousedown = False
+        elif m.getPressed()[0]==1:
+            # if the mouse is down, determine if we started a new stroke
+            if mousedown == False:                 
+                D.new_stroke(pos,tt)
+                mousedown = True
+            else:
+                D.append(pos,tt)
+        elif m.getPressed()[0]==0:
+            # if the mouse is up, reset and wait for new drawing phase
+            mousedown = False
+
+        # special key events
+        if event.getKeys(keyList=key_continue) == [key_continue]:
+            # if space is pressed, the drawing is done
+            break
+        if event.getKeys(keyList=key_undo) == [key_undo]:
+            # if undo key is pressed, delete the last stroke             
+            D.undo()
+            mousedown = False
     
-    # make image         
-    canvas.draw()
-    draw_strokes(drawlist)
+    # make image
+    D.draw(from_scratch=True)
     IMG = w.getMovieFrame(buffer='back')    
     IMG = IMG.crop(window_grab)
     IMG.save(fout_img)
-    
-    #w.saveMovieFrames(fout_img)
 
     # print time course to text file
-    strokes = get_strokes(drawlist,center,xscale,yscale)
-    for i,stk in enumerate(strokes):
-        for j,pt in enumerate(stk):
-            pt.append(timelist[i][j]) # add timestamp
+    traj = get_strokes(D,center,xscale,yscale)
     with open(fout_stk,"wb") as f:
         writer = csv.writer(f)
-        writer.writerows(strokes)
-
+        writer.writerows(traj)
     w.close()
 
 if __name__ == "__main__":

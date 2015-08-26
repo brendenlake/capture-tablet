@@ -23,8 +23,9 @@ import numpy as np
 # Then add 0.5 to all coordinates
 # Then multiply by sz
 #
-sz = 200 # size of canvas
-lw = 4.0 # line width
+sz = 250 # size of canvas
+lw = 8.0 # line width
+rd = lw/2.0 # radius of dot
 
 def transform(strokes):
 	for stk in strokes:
@@ -49,7 +50,21 @@ def load_traj(fn):
 		reader = csv.reader(f)
 		for line in reader:
 			stk = [item[1:-1].split(', ') for item in line]
+			assert len(stk[0])==3 # make sure format is [x,y,t]
 			strokes.append(np.array(stk,dtype='float'))
+
+	# check the time resolution
+	dtime = []
+	for stk in strokes:
+		time = stk[0][2]
+		for idx in range(1,len(stk)):	
+			new_time = stk[idx][2]
+			dtime.append(new_time-time)
+			time = new_time
+	dtime = np.array(dtime)
+	print "average time resolution: " + str(int(np.mean(dtime))) + " ms"
+	print "max time resolution: " + str(int(np.max(dtime))) + " ms"
+	print "min time resolution: " + str(int(np.min(dtime))) + " ms"
 
 	strokes = [stk[:,0:2] for stk in strokes]
 	strokes = transform(strokes)
@@ -60,20 +75,21 @@ def render(strokes):
 	master = tk.Tk()
 	w = tk.Canvas(master, width=sz, height=sz)
 	w.pack()
-
 	for stk in strokes:
 		pos = stk[0][0:2]
-		for idx in range(1,len(stk)):
+		w.create_oval(pos[0]-rd, pos[1]-rd, pos[0]+rd, pos[1]+rd, fill="black")
+		for idx in range(1,len(stk)):			
 			new_pos = stk[idx][0:2]
 			w.create_line(pos[0], pos[1], new_pos[0], new_pos[1], fill="black", width=lw)
-			pos = copy.copy(new_pos)
+			w.create_oval(new_pos[0]-rd, new_pos[1]-rd, new_pos[0]+rd, new_pos[1]+rd, fill="black")
+			pos = copy.copy(new_pos)			
 
 	filename = 'render'
 	w.postscript(file=filename+'.ps',width=sz,height=sz)
 	w.delete(tk.ALL)
 
 if __name__ == "__main__":
-	fn = 'strokes_handwritten/s1_gurmukhi_page_14.csv'
+	fn = 'strokes_handwritten/s1_latin_page_11.csv'
 	strokes = load_traj(fn)
 	render(strokes)
 
