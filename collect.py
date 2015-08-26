@@ -26,6 +26,7 @@ width = 500 # width of window in pixels
 window_offset = 1050 # how many pixels to offset window from left of screen
 key_continue = 'space' # key to press to continue
 key_undo = 'backspace' # key to press to undo last stroke
+pfill = 0.6 # proportion of canvas that longest dimension of target image should fill
 
 # Create folders if needed
 if not os.path.exists(imgs_out): os.makedirs(imgs_out)
@@ -214,12 +215,13 @@ def do_trial(filename,username,trial_num,trial_total):
     # Load display image
     IMG = Image.open(filename)
     currwidth = float(max(IMG.size[0],IMG.size[1]))
-    basewidth = width / 2.0
+    background_width = width / 2.0 # base size of target image
+    basewidth = background_width*pfill # proportion of base that target image fills
     wpercent = (basewidth/currwidth)
     wsize = int((float(IMG.size[0])*float(wpercent)))
     hsize = int((float(IMG.size[1])*float(wpercent)))
     IMG = IMG.resize((wsize,hsize), Image.ANTIALIAS)
-    sz = (int(basewidth),int(basewidth))
+    sz = (int(background_width),int(background_width))
     PADDING = Image.new('RGB', sz, 'white')
     PADDING.paste(IMG,((sz[0] - IMG.size[0]) / 2, (sz[1] - IMG.size[1]) / 2))
     im = visual.SimpleImageStim(w,PADDING,pos=(0,0.5))
