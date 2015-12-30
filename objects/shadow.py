@@ -8,7 +8,7 @@ from skimage import morphology, measure
 import cv2
 
 # Parameters
-dir_in = 'turtle' # directory with resized images (approx. 500 pixels in longest dimension)
+dir_in = 'balloon' # directory with resized images (approx. 500 pixels in longest dimension)
 threshold = 245
 img_size = 7 # in inches
 sub_scale = 0.5 # reduce size of primary object by this much
