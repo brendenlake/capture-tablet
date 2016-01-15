@@ -29,7 +29,7 @@ def get_nsubj():
 	myid = list(set(myid))
 	return max(myid)
 
-
+# get all of the unique character names
 fns = glob.glob(imgs_printed+'/*.png')
 bases = []
 for f in fns:
@@ -38,9 +38,9 @@ for f in fns:
 	base = g[0]
 	bases.append(base)
 
+# make the plots
 nsubj = get_nsubj()
 nrow = math.ceil(math.sqrt(nsubj))
-
 for b in bases:
 	plt.figure(1,figsize=(10,10))
 	for s in range(1,nsubj+1):
@@ -51,5 +51,7 @@ for b in bases:
 		frame = plt.gca()
 		frame.axes.get_xaxis().set_visible(False)
 		frame.axes.get_yaxis().set_visible(False)
+		plt.title(str(s))
 	# plt.show()
 	plt.savefig(imgs_by_type + '/' + b + '.pdf')
+
