@@ -89,7 +89,7 @@ def render(strokes):
 	w.delete(tk.ALL)
 
 if __name__ == "__main__":
-	fn = 'strokes_handwritten/s1_latin_page_11.csv'
+	fn = 'strokes_handwritten/s43_aaa_practice_01.csv'
 	strokes = load_traj(fn)
 	render(strokes)
 
