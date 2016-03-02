@@ -1,16 +1,21 @@
 from scipy import misc
 from scipy.ndimage.morphology import binary_fill_holes
 from scipy.stats.mstats import mode
+import scipy.ndimage as ndimage
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 from skimage import morphology, measure
 import cv2
+import sys
 
 # Parameters
-dir_in = 'balloon' # directory with resized images (approx. 500 pixels in longest dimension)
-threshold = 245
-img_size = 7 # in inches
+if len(sys.argv) <= 1:
+	dir_in = 'cat' # directory with resized images (approx. 500 pixels in longest dimension)
+else:
+	dir_in = sys.argv[1]
+threshold = 10 # the modal value subtracted by this number is used to separate figure from ground (assuming white background)
+img_size = 7 # size of contour plot in inches (shouldn't matter)
 sub_scale = 0.5 # reduce size of primary object by this much
 
 def load_images(mydir):
@@ -25,8 +30,25 @@ def strip(s):
 
 # save a binary image (where 'true' is an inked pixel)
 def save_bimg(fn,img):
-	out = 1-img.astype(int)
+	out = 1-img
 	out = out * 255
+	misc.imsave(fn,out.astype(int))
+
+# save a grayscale image 
+def save_gscale_img(fn,grayimg,mask_erode,mask_dilate):
+	mask_erode = mask_erode.astype(float)
+	mask_dilate = mask_dilate.astype(float)
+	grayimg = grayimg.astype(float)
+
+	# include all pixels 'on' in eroded binary shadow
+	# exclude all pixels 'off' in dilated binary shadow
+	img = grayimg 
+	img = np.maximum(img,mask_erode)
+	img = np.minimum(img,mask_dilate)
+
+	out = 1-img
+	out = out * 255
+	out = out.astype(int)
 	misc.imsave(fn,out)
 
 # compute the size of the largest floating background object in an image (island of white or black pixels)
@@ -61,18 +83,19 @@ for f in files:
 	assert sz[1] % 2 == 0
 	
 	# make square image by padding with white space
+	bg_color,_ = mode(im,axis=None)
 	max_sz = max(sz)
-	bg = 255 * np.ones((max_sz,max_sz))
+	bg = bg_color * np.ones((max_sz,max_sz))
 	padx = (max_sz - sz[0])/2
 	pady = (max_sz - sz[1])/2
 	bg[padx:max_sz-padx,pady:max_sz-pady] = im
 	im = bg
 	
 	# plot contour image
-	fig = plt.figure(figsize=(img_size,img_size))	
+	fig = plt.figure(figsize=(img_size,img_size))
 	ax = fig.add_subplot(111)
-	ax.set_aspect('equal')
-	plt.contourf(im, levels=[0,threshold], colors='black', origin='image', antialiased=False)
+	ax.set_aspect('equal')	
+	plt.contourf(im, levels=[0,bg_color-threshold], colors='black', origin='image', antialiased=True)
 
 	# fix axes so that the image has the proper scale
 	plt.xlim([-max_sz*(1-sub_scale), max_sz*(1.0+(1-sub_scale))])
@@ -93,10 +116,21 @@ for f in files:
 	# load binary image
 	grayscale_img = misc.imread(dir_out + "/" + f, flatten=True)	
 	img = grayscale_img < (255/2) # make binary image where 'true' indicates an inked pixel
+	
+	# smoothing applied to the grayscale imgae
+	grayscale_img = 1-(grayscale_img.astype(float) / 255.0)
+	grayscale_img = ndimage.gaussian_filter(grayscale_img, sigma=(1, 1), order=0)
 
-	# remove stray objects in the image	
+	# remove stray floaters and holes in the image
+	img = np.copy(img)
 	img = morphology.remove_small_objects(img, min_size = largest_floater(img)).astype(bool)
 	img = morphology.remove_small_objects(np.logical_not(img), min_size = largest_floater(img))
 	img = np.logical_not(img)
 
-	save_bimg(dir_out+'/'+base+'.png',img)
+	# compute erosion and expansion so we can detect the border of the silhouette
+	selem = morphology.disk(2)
+	mask_erode = morphology.binary_erosion(img, selem)
+	mask_dilate = morphology.binary_dilation(img, selem)
+	
+	# compute final silhouette
+	save_gscale_img(dir_out+'/'+base+'.png',grayscale_img,mask_erode,mask_dilate)

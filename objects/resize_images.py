@@ -6,7 +6,7 @@ import Image
 #   resize and convert to JPG
 #
 
-mytype = 'balloon'
+mytype = 'cat'
 dir_in = 'originals/' + mytype # input directory
 dir_out = mytype 	 # output directory
 maxsize = 500.0 	 # new size for the largest dimensino
