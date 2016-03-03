@@ -11,7 +11,8 @@ from PIL import Image
 # output : files in folder imgs_by_type
 #
 
-dirs = ['balloon','bowlingpin','butterfly','horseshoe']
+# dirs = ['balloon','bowlingpin','butterfly','horseshoe']
+dirs = ['cat','butterfly','horse']
 imgs_by_type = 'objects_by_type' # directory to store aggregated images
 
 if not os.path.exists(imgs_by_type): os.makedirs(imgs_by_type)
@@ -19,7 +20,7 @@ for d in dirs:
 	mydir = d + '_shadow'
 	if os.path.exists(d):
 		fns = glob.glob(mydir+'/*.png')
-		plt.figure(1,figsize=(10,10))
+		plt.figure(1,figsize=(30,30))
 		plt.clf()
 		nrow = math.ceil(math.sqrt(len(fns)))
 		for s,fn in enumerate(fns):
