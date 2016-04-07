@@ -11,17 +11,26 @@ import sys
 
 # Parameters
 if len(sys.argv) <= 1:
-	dir_in = 'castle' # directory with resized images (approx. 500 pixels in longest dimension)
+	dir_in = 'horse' # directory with resized images (approx. 500 pixels in longest dimension)
 else:
 	dir_in = sys.argv[1]
 threshold = 10 # the modal value subtracted by this number is used to separate figure from ground (assuming white background)
 img_size = 7 # size of contour plot in inches (shouldn't matter)
 sub_scale = 0.5 # reduce size of primary object by this much
+outsize = 250 # size of the output image
+rename = True # rename the files?
 
 def load_images(mydir):
 	list_fn = os.listdir(mydir)
 	list_fn = [f for f in list_fn if f[0] != '.']
 	return list_fn
+
+def tostr(x):
+	# convert number to string with leading 0
+	x = str(x)
+	if len(x) == 1:
+		x = '0' + x
+	return x
 
 # strip file type off the end of the name
 def strip(s):
@@ -32,6 +41,7 @@ def strip(s):
 def save_bimg(fn,img):
 	out = 1-img
 	out = out * 255
+	out = misc.imresize(out,(outsize,outsize))
 	misc.imsave(fn,out.astype(int))
 
 # save a grayscale image 
@@ -49,6 +59,8 @@ def save_gscale_img(fn,grayimg,mask_erode,mask_dilate):
 	out = 1-img
 	out = out * 255
 	out = out.astype(int)
+
+	out = misc.imresize(out,(outsize,outsize))
 	misc.imsave(fn,out)
 
 # compute the size of the largest floating background object in an image (island of white or black pixels)
@@ -110,7 +122,7 @@ for f in files:
 
 # post-processing of silhouette
 files = load_images(dir_out)
-for f in files:
+for idx,f in enumerate(files):
 	base = strip(f)
 	
 	# load binary image
@@ -133,4 +145,8 @@ for f in files:
 	mask_dilate = morphology.binary_dilation(img, selem)
 	
 	# compute final silhouette
-	save_gscale_img(dir_out+'/'+base+'.png',grayscale_img,mask_erode,mask_dilate)
+	fn_out = dir_out+'/'+base+'.png'
+	os.remove(fn_out)
+	if rename:
+		fn_out = dir_out+'/item'+tostr(idx+1)+'_'+dir_in+'.png'
+	save_gscale_img(fn_out,grayscale_img,mask_erode,mask_dilate)
