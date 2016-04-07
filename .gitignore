@@ -1,7 +1,9 @@
 .DS_store
 *.pyc
-stimuli_by_type
+stimuli_by_type*
+selected_by_type*
 printed.key
 subject_list.rtf
 objects/originals
 objects/objects_by_type
+simple_stats

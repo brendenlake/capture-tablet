@@ -8,10 +8,13 @@ import os
 from skimage import morphology, measure
 import cv2
 import sys
+sys.path.append("../")
+from normalize import normalize
+
 
 # Parameters
 if len(sys.argv) <= 1:
-	dir_in = 'horse' # directory with resized images (approx. 500 pixels in longest dimension)
+	dir_in = 'cat' # directory with resized images (approx. 500 pixels in longest dimension)
 else:
 	dir_in = sys.argv[1]
 threshold = 10 # the modal value subtracted by this number is used to separate figure from ground (assuming white background)
@@ -19,6 +22,8 @@ img_size = 7 # size of contour plot in inches (shouldn't matter)
 sub_scale = 0.5 # reduce size of primary object by this much
 outsize = 250 # size of the output image
 rename = True # rename the files?
+do_normalize = True # should we normalize the images?
+figure_size = 125 # size of the largest dimension of the image (keeping aspect ratio)
 
 def load_images(mydir):
 	list_fn = os.listdir(mydir)
@@ -55,12 +60,16 @@ def save_gscale_img(fn,grayimg,mask_erode,mask_dilate):
 	img = grayimg 
 	img = np.maximum(img,mask_erode)
 	img = np.minimum(img,mask_dilate)
-
-	out = 1-img
-	out = out * 255
-	out = out.astype(int)
-
-	out = misc.imresize(out,(outsize,outsize))
+	if do_normalize:
+		img = normalize(img,figure_size,outsize)		
+		out = 1-img
+		out = out * 255
+		out = out.astype(int)
+	else:
+		out = 1-img
+		out = out * 255
+		out = out.astype(int)
+		out = misc.imresize(out,(outsize,outsize))
 	misc.imsave(fn,out)
 
 # compute the size of the largest floating background object in an image (island of white or black pixels)

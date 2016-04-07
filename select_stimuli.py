@@ -19,7 +19,8 @@ background_size = 250 # total image size
 imgs_by_type = 'selected' # directory to store aggregated images
 exclude = 'exclude.txt' # particular images we want to exclude
 imgs_printed = 'imgs_printed' # images we want participant to copy
-imgs_handwritten = 'imgs_handwritten' # folder to store drawn images
+imgs_handwritten = 'imgs_rerender' # folder to store drawn images
+# imgs_handwritten = 'imgs_handwritten' # folder to store drawn images
 nstim_per_category = 40 # number of examples we want for each category
 
 if not os.path.exists(imgs_by_type): os.makedirs(imgs_by_type)
@@ -92,12 +93,12 @@ for b in bases:
 		# normalize stimuli
 		srcfile = dstdir + '/s' + str(s) + '_' + b + '.png'
 		img = misc.imread(srcfile, flatten=True)
-		img = np.array(img)
+		img = np.array(img,dtype=float)
 		mx = np.amax(img.flatten())
-		img = np.array(img < mx/2) # convert to boolean image
+		img = img / float(mx)
+		img = 1-img
 		img = normalize(img,figure_size,background_size)
-		img = np.logical_not(img)
-		misc.imsave(srcfile,img)
+		misc.imsave(srcfile,1-img)
 
 		# rename file
 		dstfile = dstdir + '/item' + tostr(count) + '_' + b + '.png'					

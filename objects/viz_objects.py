@@ -11,11 +11,8 @@ from PIL import Image
 # output : files in folder imgs_by_type
 #
 
-dirs = ['balloon','bowlingpin','butterfly','horseshoe']
-# dirs = ['cat','car','butterfly','horse']
-
-dirs = ['balloon','bowlingpin','butterfly','horseshoe']
-
+# dirs = ['balloon','bowlingpin','butterfly','horseshoe']
+dirs = ['cat','car','butterfly','horse','airplane']
 
 imgs_by_type = 'objects_by_type' # directory to store aggregated images
 
