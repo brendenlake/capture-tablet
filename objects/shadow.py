@@ -14,7 +14,7 @@ from normalize import normalize
 
 # Parameters
 if len(sys.argv) <= 1:
-	dir_in = 'cat' # directory with resized images (approx. 500 pixels in longest dimension)
+	dir_in = 'horse' # directory with resized images (approx. 500 pixels in longest dimension)
 else:
 	dir_in = sys.argv[1]
 threshold = 10 # the modal value subtracted by this number is used to separate figure from ground (assuming white background)

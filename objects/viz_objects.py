@@ -12,7 +12,7 @@ from PIL import Image
 #
 
 # dirs = ['balloon','bowlingpin','butterfly','horseshoe']
-dirs = ['cat','car','butterfly','horse','airplane']
+dirs = ['car','butterfly','horse','airplane']
 
 imgs_by_type = 'objects_by_type' # directory to store aggregated images
 

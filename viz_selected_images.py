@@ -12,7 +12,7 @@ from PIL import Image
 # output : files in folder imgs_by_type
 #
 
-selected = 'selected'
+selected = 'final_set'
 
 # get name of folder for each character
 mydirs = os.listdir(selected)

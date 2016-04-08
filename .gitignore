@@ -1,5 +1,6 @@
 .DS_store
 *.pyc
+*.zip
 stimuli_by_type*
 selected_by_type*
 printed.key
